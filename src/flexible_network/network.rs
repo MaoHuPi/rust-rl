@@ -1,3 +1,6 @@
+// 2023 (c) MaoHuPi
+// rust-rl/src/flexible_network/network.rs
+
 pub struct ActivationFunction();
 #[allow(dead_code)]
 impl ActivationFunction {
