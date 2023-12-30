@@ -1,6 +1,10 @@
 // 2023 (c) MaoHuPi
 // rust-rl/src/flexible_network/network.rs
 
+fn re_range(x: f64) -> f64 {
+    if x.is_infinite() {100.0} else if x.is_nan() {0.0} else {x}
+}
+
 pub struct ActivationFunction();
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -106,14 +110,14 @@ impl Node {
                 // self.input_value[i] = 0.0;
             }
             self.value = value_sum + self.b;
-            self.value = ActivationFunction::get_function(self.activation_fn_enum.clone())(self.value);
+            self.value = re_range(ActivationFunction::get_function(self.activation_fn_enum.clone())(self.value));
         }
         self.value
     }
     pub fn fitting(&mut self, anticipated_value: f64, learning_rate: f64) {
         if self.input_count > 0 {
-            // reverse anticipated_value by activation_fn at first!
-            let anticipated_value: f64 = ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value);
+            let anticipated_value: f64 = re_range(ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value));
+            // reverse anticipated_value by reversed activation function.
             
             // cost := (self.value - anticipated_value).powi(2);
             for i in 0..self.input_count {
@@ -283,7 +287,6 @@ impl Network {
             }
             queue_list = new_queue_list;
         }
-        // some times the vector value exhibits NaN!
     }
 }
 

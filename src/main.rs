@@ -46,19 +46,16 @@ fn main() {
     net.set_input_id(input_layer);
     net.set_output_id(output_layer);
 
-    for _ in 0..1 {
-        // for i in 0..10 {
-            // let i_f64: f64 = f64::try_from(i).unwrap();
-            let input_value: Vec<f64> = Vec::from([rng.gen_range(0.0..=10.0)/10.0, rng.gen_range(0.0..=10.0)/10.0]);
-            let output_value: Vec<f64> = Vec::from([input_value[0] + input_value[1]]);
-            println!("{} {} {}", input_value[0],  input_value[1], output_value[0]);
-            net.set_input(Vec::from(input_value));
-            net.next();
-            net.fitting(output_value, 0.0001);
-        // }
+    for _ in 0..100 {
+        let input_value: Vec<f64> = Vec::from([rng.gen_range(0.0..=10.0)/10.0, rng.gen_range(0.0..=10.0)/10.0]);
+        let output_value: Vec<f64> = Vec::from([input_value[0] + input_value[1]]);
+        println!("{} {} {}", input_value[0],  input_value[1], output_value[0]);
+        net.set_input(Vec::from(input_value));
+        net.next();
+        net.fitting(output_value, 0.0001);
     }
     
-    net.set_input(Vec::from([1.0, 1.0]));
+    net.set_input(Vec::from([1.0, 0.5]));
     net.next();
     let output_value: Vec<f64> = net.get_output();
     println!("{}, {}", serde_json::to_string(&output_value).unwrap(), output_value[0].is_nan());
