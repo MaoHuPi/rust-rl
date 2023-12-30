@@ -268,32 +268,22 @@ impl Network {
             queue_list.append(&mut self.nodes[self.output_id[i]].fetch_value());
         }
 
-        let mut still_queue_list: Vec<NodeFetchQueueItem> = Vec::new();
         loop {
             if queue_list.len() == 0 {
                 break;
             }
             let mut new_queue_list: Vec<NodeFetchQueueItem> = Vec::new();
-            let mut update_data: Vec<NetworkUpdateItem> = Vec::new();
             for queue_item in queue_list {
                 let from_id: usize = queue_item.from_id;
-                if self.nodes[from_id].input_count == 0 || from_id == queue_item.to_id {
-                    update_data.push(NetworkUpdateItem{
-                        to_id: from_id, 
-                        to_index: 0, 
-                        new_value: self.get_node(queue_item.to_id).input_value[queue_item.to_index]
-                    });
-                } else {
-                    still_queue_list.push(queue_item);
+                if !(self.nodes[from_id].input_count == 0 || from_id == queue_item.to_id) {
+                    let anticipated_input_value: f64 = self.nodes[queue_item.to_id].input_value[queue_item.to_index];
+                    self.nodes[from_id].fitting(anticipated_input_value, learning_rate);
                     new_queue_list.append(&mut self.nodes[from_id].fetch_value());
                 }
             }
-            // there are some error in this function!
-            for item in &update_data {
-                self.get_node(item.to_id).fitting(item.new_value, learning_rate);
-            }
             queue_list = new_queue_list;
         }
+        // some times the vector value exhibits NaN!
     }
 }
 

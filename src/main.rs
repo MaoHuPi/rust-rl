@@ -2,6 +2,7 @@
 // rust-rl/src/main.rs
 // Referred to [【機器學習2021】概述增強式學習 (Reinforcement Learning, RL)...](https://youtu.be/XWukX-ayIrs?si=LuWwekF-Jq4K2np_)
 
+use std::ptr::null;
 // new => init => get => set => other
 use std::vec::Vec;
 use rand::Rng;
@@ -59,7 +60,8 @@ fn main() {
     
     net.set_input(Vec::from([1.0, 1.0]));
     net.next();
-    println!("{}", serde_json::to_string(&net.get_output()).unwrap());
+    let output_value: Vec<f64> = net.get_output();
+    println!("{}, {}", serde_json::to_string(&output_value).unwrap(), output_value[0].is_nan());
 
     println!("done!");
 }
