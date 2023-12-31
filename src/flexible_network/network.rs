@@ -1,12 +1,27 @@
 // 2023 (c) MaoHuPi
 // rust-rl/src/flexible_network/network.rs
 
-fn re_range(x: f64) -> f64 {
-    if x.is_infinite() {100.0} else if x.is_nan() {0.0} else {x}
+use std::f64::INFINITY;
+// the Infinity Value
+use serde::Serialize;
+// Make the customize struct be able to json stringify
+use colored::Colorize;
+// Colored print and panic.
+
+fn check_domain(x: f64, min: f64, max:f64) -> Result<f64, String> {
+    // To check the input value is between the min and max or not.
+    if x > max {
+        Err(format!("[{}]: Function input out of range! x must lower then max value({}).", "check_domain".red(), max))
+    } else if x < min {
+        Err(format!("[{}]: Function input out of range! x must higher then min value({}).", "check_domain".red(), min))
+    } else {
+        Ok(x)
+    }
 }
 
 pub struct ActivationFunction();
 #[derive(Clone)]
+#[derive(Copy)]
 #[allow(dead_code)]
 pub enum ActivationFunctionEnum {
     DoNothing, 
@@ -23,17 +38,31 @@ impl ActivationFunction {
         1.0 / (1.0 + std::f64::consts::E.powf(-x))
     }
     fn sigmoid_inverse(x: f64) -> f64 {
-        (x/(1.0-x)).ln()
+        match check_domain(x, 0.0, 1.0) {
+            Ok(v) => {
+                (v/(1.0-v)).ln()
+            }, 
+            Err(e) => panic!("{}", e)
+        }
     }
     fn tanh(x: f64) -> f64 {
         let e_powf_2x: f64 = std::f64::consts::E.powf(2.0*x);
         (e_powf_2x - 1.0) / (e_powf_2x + 1.0)
     }
     fn tanh_inverse(x: f64) -> f64 {
-        0.5*((1.0+x)/(1.0-x)).ln()
+        match check_domain(x, -1.0, 1.0) {
+            Ok(v) => 0.5*((1.0+v)/(1.0-v)).ln(), 
+            Err(e) => panic!("{}", e)
+        }
     }
     fn relu(x: f64) -> f64 {
         if x <= 0.0 {0.0} else {x}
+    }
+    fn relu_inverse(x: f64) -> f64 {
+        match check_domain(x, 0.0, INFINITY) {
+            Ok(v) => if v <= 0.0 {0.0} else {v}, 
+            Err(e) => panic!("{}", e)
+        }
     }
     pub fn get_function(activation_fn_enum: ActivationFunctionEnum) -> fn(f64) -> f64 {
         match activation_fn_enum {
@@ -48,7 +77,15 @@ impl ActivationFunction {
             ActivationFunctionEnum::DoNothing => ActivationFunction::do_nothing, 
             ActivationFunctionEnum::Sigmoid => ActivationFunction::sigmoid_inverse, 
             ActivationFunctionEnum::Tanh => ActivationFunction::tanh_inverse, 
-            ActivationFunctionEnum::ReLU => ActivationFunction::relu
+            ActivationFunctionEnum::ReLU => ActivationFunction::relu_inverse
+        }
+    }
+    pub fn get_name_from_enum(activation_fn_enum: ActivationFunctionEnum) -> &'static str {
+        match activation_fn_enum {
+            ActivationFunctionEnum::DoNothing => "do_nothing", 
+            ActivationFunctionEnum::Sigmoid => "sigmoid", 
+            ActivationFunctionEnum::Tanh => "tanh", 
+            ActivationFunctionEnum::ReLU => "relu"
         }
     }
 }
@@ -65,6 +102,15 @@ pub struct Node {
     b: f64, 
     activation_fn_enum: ActivationFunctionEnum
     // Bias Terms
+}
+#[derive(Clone)]
+#[derive(Serialize)]
+struct NodeData {
+    id: usize, 
+    i_id: Vec<usize>, 
+    i_w: Vec<f64>, 
+    b: f64, 
+    a_fn: &'static str
 }
 pub struct NodeFetchQueueItem {
     // Queue Item for Network Node to Fetch Value
@@ -110,13 +156,13 @@ impl Node {
                 // self.input_value[i] = 0.0;
             }
             self.value = value_sum + self.b;
-            self.value = re_range(ActivationFunction::get_function(self.activation_fn_enum.clone())(self.value));
+            self.value = ActivationFunction::get_function(self.activation_fn_enum.clone())(self.value);
         }
         self.value
     }
     pub fn fitting(&mut self, anticipated_value: f64, learning_rate: f64) {
         if self.input_count > 0 {
-            let anticipated_value: f64 = re_range(ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value));
+            let anticipated_value: f64 = ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value);
             // reverse anticipated_value by reversed activation function.
             
             // cost := (self.value - anticipated_value).powi(2);
@@ -126,12 +172,14 @@ impl Node {
                 let w_i = self.input_w[i];
                 let gradient: f64 = 2.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
                 // partial w_i of cost := 4.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
-                self.input_w[i] = w_i - gradient*learning_rate;
+                let gradient = gradient;
+                self.input_w[i] -= gradient*learning_rate;
             }
             self.calc_value();
-            let gradient: f64 = 2.0*self.b + 2.0*(self.value-self.b - anticipated_value);
-            // partial b of cost := 4.0*self.b + 2.0*(self.value-self.b - anticipated_value);
-            self.b = self.b - gradient*learning_rate;
+            // let gradient: f64 = -(2.0*self.b + 2.0*(self.value-self.b - anticipated_value));
+            let gradient: f64 = 2.0*(anticipated_value - self.value);
+            // partial b of cost := -(4.0*self.b + 2.0*(self.value-self.b - anticipated_value));
+            self.b -= gradient*learning_rate;
             
             for i in 0..self.input_count {
                 self.calc_value();
@@ -139,7 +187,7 @@ impl Node {
                 let w_i = self.input_w[i];
                 let gradient: f64 = 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
                 // partial value_i of cost := 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
-                self.input_value[i] = value_i - gradient*learning_rate;
+                self.input_value[i] -= gradient*learning_rate;
             }
         }
     }
@@ -154,6 +202,18 @@ pub struct Network {
     nodes: Vec<Node>, 
     input_id: Vec<usize>, 
     output_id: Vec<usize>
+}
+#[derive(Clone)]
+#[derive(Serialize)]
+pub struct NetworkData {
+    nodes: Vec<NodeData>
+}
+impl NetworkData {
+    fn new() -> Self {
+        NetworkData {
+            nodes: Vec::new()
+        }
+    }
 }
 struct NetworkUpdateItem{
     // Item to Update Network Node 
@@ -215,6 +275,21 @@ impl Network {
             output_value.push(node.get_value());
         }
         output_value
+    }
+    pub fn get_data(&mut self) -> NetworkData {
+        let mut data_array: NetworkData = NetworkData::new();
+        for id in 0..self.nodes.len() {
+            let node: &mut Node = self.get_node(id);
+            let node_data = NodeData {
+                id, 
+                i_id: node.input_id.clone(), 
+                i_w: node.input_w.clone(), 
+                b: node.b, 
+                a_fn: ActivationFunction::get_name_from_enum(node.activation_fn_enum), 
+            };
+            data_array.nodes.push(node_data);
+        }
+        data_array
     }
     pub fn next(&mut self) {
         // Next step of this network.
@@ -298,6 +373,7 @@ mod tests {
 
     #[test]
     fn test_node_fitting() {
+        let test_data: [[f64; 2]; 2] = [[1.0, 2.0], [2.0, 4.0]];
         let mut net = Network::new();
         let i_id: usize = net.new_node(0.0, ActivationFunctionEnum::DoNothing);
         let o_id: usize = net.new_node(0.0, ActivationFunctionEnum::DoNothing);
@@ -305,28 +381,21 @@ mod tests {
         net.set_input_id(Vec::from([i_id]));
         net.set_output_id(Vec::from([o_id]));
         
-        macro_rules! setup_and_fitting {
-            ($input: expr => $output: expr, $rate: expr) => {
-                {
-                    for n in 0..5{
-                        net.set_input(Vec::from([$input*(n as f64)]));
-                        net.next();
-                        net.get_node(o_id).fitting($output*(n as f64), $rate);
-                    }
+        for rate in [0.001, 0.0001] {
+            for _ in 1..=10000 {
+                for test_pair in test_data {
+                    net.set_input(Vec::from([test_pair[0]]));
+                    net.next();
+                    net.get_node(o_id).fitting(test_pair[1], rate);
                 }
             }
         }
-        for _ in 1..=100 { setup_and_fitting!(1.0 => 2.0, 0.001); }
-        for i in 1..=10 { setup_and_fitting!(1.0 => 2.0, 0.001/(f64::try_from(i).unwrap())); }
-        for _ in 1..=1000 { setup_and_fitting!(1.0 => 2.0, 0.000001); }
         
-        net.set_input(Vec::from([10.0]));
-        net.next();
-        // let o = net.get_node(o_id);
-        // let o_b = o.b;
-        // println!("{} {}", o.input_w[0], o_b);
-        // assert_eq!(net.get_output(), Vec::from([10.0]));
-        assert_eq!(net.get_output(), Vec::from([18.143440974766087]));
+        for test_pair in test_data {
+            net.set_input(Vec::from([test_pair[0]]));
+            net.next();
+            assert!((net.get_output()[0] - test_pair[1]).abs() < 1.0);
+        }
     }
     
     // #[test]
