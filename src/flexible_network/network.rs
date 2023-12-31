@@ -1,11 +1,13 @@
-// 2023 (c) MaoHuPi
-// rust-rl/src/flexible_network/network.rs
+/*
+ * 2023 (c) MaoHuPi
+ * rust-rl/src/flexible_network/network.rs
+ */
 
 use std::collections::HashMap;
 // HashMap Type
 use std::f64::INFINITY;
 // the Infinity Value
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 // Make the customize struct be able to json stringify
 use colored::Colorize;
 // Colored print and panic.
@@ -82,12 +84,23 @@ impl ActivationFunction {
             ActivationFunctionEnum::ReLU => ActivationFunction::relu_inverse
         }
     }
-    pub fn get_name_from_enum(activation_fn_enum: ActivationFunctionEnum) -> &'static str {
-        match activation_fn_enum {
+    pub fn get_name_from_enum(activation_fn_enum: ActivationFunctionEnum) -> String {
+        String::from(match activation_fn_enum {
             ActivationFunctionEnum::DoNothing => "do_nothing", 
             ActivationFunctionEnum::Sigmoid => "sigmoid", 
             ActivationFunctionEnum::Tanh => "tanh", 
             ActivationFunctionEnum::ReLU => "relu"
+        })
+    }
+    pub fn get_enum_from_name(activation_fn_name: String) -> ActivationFunctionEnum {
+        // ( +)(.*)::(.*) => (.[^,]*)(.*)
+        // $1$4 => $2::$3$5
+        match activation_fn_name.as_str() {
+            "do_nothing" => ActivationFunctionEnum::DoNothing, 
+            "sigmoid" => ActivationFunctionEnum::Sigmoid, 
+            "tanh" => ActivationFunctionEnum::Tanh, 
+            "relu" => ActivationFunctionEnum::ReLU, 
+            _ => ActivationFunctionEnum::DoNothing
         }
     }
 }
@@ -106,13 +119,13 @@ pub struct Node {
     // Bias Terms
 }
 #[derive(Clone)]
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct NodeData {
     id: usize, 
     i_id: Vec<usize>, 
     i_w: Vec<f64>, 
     b: f64, 
-    a_fn: &'static str
+    a_fn: String
 }
 pub struct NodeFetchQueueItem {
     // Queue Item for Network Node to Fetch Value
@@ -207,14 +220,20 @@ pub struct Network {
     layer_length: HashMap<usize, usize>
 }
 #[derive(Clone)]
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct NetworkData {
-    nodes: Vec<NodeData>
+    ns: Vec<NodeData>, 
+    i_id: Vec<usize>, 
+    o_id: Vec<usize>, 
+    l_len: HashMap<usize, usize>
 }
 impl NetworkData {
     fn new() -> Self {
         NetworkData {
-            nodes: Vec::new()
+            ns: Vec::new(), 
+            i_id: Vec::new(), 
+            o_id: Vec::new(), 
+            l_len: HashMap::new(), 
         }
     }
 }
@@ -319,8 +338,8 @@ impl Network {
         }
         output_value
     }
-    pub fn get_data(&mut self) -> NetworkData {
-        let mut data_array: NetworkData = NetworkData::new();
+    pub fn export_data(&mut self) -> NetworkData {
+        let mut node_data_array: Vec<NodeData> = Vec::new();
         for id in 0..self.nodes.len() {
             let node: &mut Node = self.get_node(id);
             let node_data = NodeData {
@@ -330,9 +349,28 @@ impl Network {
                 b: node.b, 
                 a_fn: ActivationFunction::get_name_from_enum(node.activation_fn_enum), 
             };
-            data_array.nodes.push(node_data);
+            node_data_array.push(node_data);
         }
-        data_array
+        NetworkData {
+            ns: node_data_array, 
+            i_id: self.input_id.clone(), 
+            o_id: self.output_id.clone(), 
+            l_len: self.layer_length.clone()
+        }
+    }
+    pub fn import_data(&mut self, data: NetworkData) {
+        for node_data in data.ns {
+            let mut node: Node = Node::new(node_data.id);
+            node.activation_fn_enum = ActivationFunction::get_enum_from_name(node_data.a_fn);
+            node.input_count = node_data.i_id.len();
+            node.input_id = node_data.i_id.clone();
+            node.input_w = node_data.i_w.clone();
+            node.input_value = node.input_id.iter().map(|&x| 0.0).collect::<Vec<f64>>();
+            self.nodes.push(node);
+        }
+        self.input_id = data.i_id;
+        self.output_id = data.o_id;
+        self.layer_length = data.l_len;
     }
     pub fn next(&mut self) {
         // Next step of this network.
