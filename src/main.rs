@@ -28,58 +28,37 @@ fn main() {
         // Test something important or just fun.
         // Currently, it is an 3-layer random network with cycle connect the hidden layer.
         let mut rng = rand::thread_rng();
-
+        let test_data: [[f64; 3]; 3] = [[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.5, 1.2, 2.7]];
         let mut net = Network::new();
-        let mut input_layer: Vec<usize> = Vec::new();
-        let mut hidden_layer: Vec<usize> = Vec::new();
-        let mut output_layer: Vec<usize> = Vec::new();
-        for _ in 0..2 {
-            input_layer.push(net.new_node(0.0, ActivationFunctionEnum::DoNothing));
-        }
-        for _ in 0..5 {
-            let h_id: usize = net.new_node(0.0, ActivationFunctionEnum::ReLU);
-            for i_id in input_layer.iter() {
-                // net.connect(*i_id, h_id, rng.gen_range(-1.0..1.0));
-                net.connect(*i_id, h_id, 1.0);
-            }
-            // if h_id%2 == 0{
-            //     net.connect(h_id, h_id, rng.gen_range(-1.0..1.0));
-            // }
-            hidden_layer.push(h_id);
-        }
-        for _ in 0..1 {
-            let o_id: usize = net.new_node(0.0, ActivationFunctionEnum::ReLU);
-            for h_id in hidden_layer.iter() {
-                // net.connect(*h_id, o_id, rng.gen_range(0.0..1.0));
-                net.connect(*h_id, o_id, 1.0);
-            }
-            output_layer.push(o_id);
-        }
-        net.set_input_id(input_layer);
-        net.set_output_id(output_layer.clone());
+        let mut input_layer: usize = net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing);
+        let mut hidden_layer: usize = net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
+        let mut output_layer: usize = net.new_layer(1, 0.0, ActivationFunctionEnum::ReLU);
+        net.connect_layer(input_layer, hidden_layer, 1.0);
+        net.connect_layer(hidden_layer, output_layer, 1.0);
+        net.set_input_layer(input_layer);
+        net.set_output_layer(output_layer);
         
-        for _ in 0..100000 {
-            let input_value: Vec<f64> = Vec::from([rng.gen_range(0.0..=1.0), rng.gen_range(0.0..=1.0)]);
-            let output_value: Vec<f64> = Vec::from([input_value[0] * input_value[1]]);
-            net.set_input(Vec::from(input_value));
+        for rate in [0.001, 0.0001] {
+            for _ in 1..=10000 {
+                // for test_pair in test_data {
+                //     net.set_input(Vec::from(&test_pair[0..=1]));
+                //     net.next();
+                //     net.fitting(Vec::from([test_pair[2]]), rate);
+                // }
+
+                let input_data: Vec <f64> = Vec::from([rng.gen_range(0.0..10.0), rng.gen_range(0.0..10.0)]);
+                let anticipated_data: Vec<f64> = Vec::from([input_data[0] + input_data[1]]);
+                net.set_input(input_data);
+                net.next();
+                net.fitting(anticipated_data, rate);
+            }
+        }
+        
+        for test_pair in test_data {
+            net.set_input(Vec::from(&test_pair[0..=1]));
             net.next();
-            net.fitting(Vec::from(output_value), 0.001);
+            println!("{} {}", net.get_output()[0], test_pair[2]);
         }
-        
-        net.set_input(Vec::from([1.0, 0.5]));
-        net.next();
-        let output_value: Vec<f64> = net.get_output();
-        println!("{}, {}", serde_json::to_string(&output_value).unwrap(), output_value[0].is_nan());
-        net.set_input(Vec::from([2.0, 1.5]));
-        net.next();
-        let output_value: Vec<f64> = net.get_output();
-        println!("{}, {}", serde_json::to_string(&output_value).unwrap(), output_value[0].is_nan());
-        net.set_input(Vec::from([0.1, 0.5]));
-        net.next();
-        let output_value: Vec<f64> = net.get_output();
-        println!("{}, {}", serde_json::to_string(&output_value).unwrap(), output_value[0].is_nan());
-        let trained_network: NetworkData = net.get_data();
-        println!("{}", serde_json::to_string(&trained_network).unwrap());
 
         println!("done!");
     };

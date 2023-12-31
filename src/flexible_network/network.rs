@@ -1,6 +1,8 @@
 // 2023 (c) MaoHuPi
 // rust-rl/src/flexible_network/network.rs
 
+use std::collections::HashMap;
+// HashMap Type
 use std::f64::INFINITY;
 // the Infinity Value
 use serde::Serialize;
@@ -201,7 +203,8 @@ pub struct Network {
     // Network
     nodes: Vec<Node>, 
     input_id: Vec<usize>, 
-    output_id: Vec<usize>
+    output_id: Vec<usize>, 
+    layer_length: HashMap<usize, usize>
 }
 #[derive(Clone)]
 #[derive(Serialize)]
@@ -229,7 +232,8 @@ impl Network {
         Network {
             nodes: Vec::new(), 
             input_id: Vec::new(), 
-            output_id: Vec::new()
+            output_id: Vec::new(), 
+            layer_length: HashMap::new()
         }
     }
     pub fn new_node(&mut self, b: f64, activation_fn_enum: ActivationFunctionEnum) -> usize {
@@ -241,19 +245,58 @@ impl Network {
         self.nodes.push(node);
         id
     }
+    pub fn new_layer(&mut self, node_number: usize, b: f64, activation_fn_enum: ActivationFunctionEnum) -> usize {
+        // Create new node and initialize it.
+        let id_start = self.nodes.len();
+        for i in 0..node_number {
+            let mut node = Node::new(id_start+i);
+            node.b = b;
+            node.activation_fn_enum = activation_fn_enum;
+            self.nodes.push(node);
+        }
+        self.layer_length.insert(id_start, node_number);
+        id_start
+    }
     pub fn connect(&mut self, from_id: usize, to_id: usize, w: f64) {
         // Connect two of the node that is in this network.
         self.nodes[to_id].new_input_source(from_id, w);
+    }
+    // fn get_id_array_from_layer(&mut self, layer_id: usize) -> Vec<usize> {
+    //     match self.layer_length.get(&layer_id) {
+    //         Some(layer_length) => (layer_id..layer_id+layer_length).collect::<Vec<usize>>(), 
+    //         None => panic!("[{}]: Layer not found!", "get_id_array_from_layer")
+    //     }
+    // }
+    pub fn connect_layer(&mut self, from_layer: usize, to_layer: usize, w: f64) {
+        let from_layer_length: &usize = self.layer_length.get(&from_layer).unwrap();
+        let to_layer_length: &usize = self.layer_length.get(&to_layer).unwrap();
+        for f in from_layer..from_layer+from_layer_length {
+            for t in to_layer..to_layer+to_layer_length {
+                self.nodes[t].new_input_source(f, w);
+            }
+        }
     }
     pub fn set_input_id(&mut self, input_id: Vec<usize>) {
         // Set the node ids corresponding to the input values. 
         let _ = self.input_id.try_reserve(self.input_id.len());
         let _ = self.input_id.extend(input_id);
     }
+    pub fn set_input_layer(&mut self, input_layer: usize) {
+        match self.layer_length.get(&input_layer) {
+            Some(layer_length) => self.input_id = (input_layer..input_layer+layer_length).collect::<Vec<usize>>(), 
+            None => panic!("[{}]: Layer not found!", "set_input_layer")
+        }
+    }
     pub fn set_output_id(&mut self, output_id: Vec<usize>) {
         // Set the node ids corresponding to the output values. 
         let _ = self.output_id.try_reserve(self.output_id.len());
         let _ = self.output_id.extend(output_id);
+    }
+    pub fn set_output_layer(&mut self, output_layer: usize) {
+        match self.layer_length.get(&output_layer) {
+            Some(layer_length) => self.output_id = (output_layer..output_layer+layer_length).collect::<Vec<usize>>(), 
+            None => panic!("[{}]: Layer not found!", "set_output_layer")
+        }
     }
     pub fn set_input(&mut self, input_value: Vec<f64>) {
         // Set input values.
@@ -398,57 +441,32 @@ mod tests {
         }
     }
     
-    // #[test]
-    // fn test_network_fitting() {
-    //     let mut rng = rand::thread_rng();
-    //     let mut net = Network::new();
-    //     let mut input_layer: Vec<usize> = Vec::new();
-    //     let mut hidden_layer: Vec<usize> = Vec::new();
-    //     let mut output_layer: Vec<usize> = Vec::new();
-    //     for _ in 0..10 {
-    //         input_layer.push(net.new_node(0.0, ActivationFunctionEnum::ReLU));
-    //     }
-    //     for _ in 0..10 {
-    //         let h_id: usize = net.new_node(0.0, ActivationFunctionEnum::ReLU);
-    //         for i_id in input_layer.iter() {
-    //             net.connect(*i_id, h_id, rng.gen_range(-1.0..1.0));
-    //         }
-    //         if h_id%2 == 0{
-    //             net.connect(h_id, h_id, rng.gen_range(-1.0..1.0));
-    //         }
-    //         hidden_layer.push(h_id);
-    //     }
-    //     for _ in 0..3 {
-    //         let o_id: usize = net.new_node(0.0, ActivationFunctionEnum::ReLU);
-    //         for h_id in hidden_layer.iter() {
-    //             net.connect(*h_id, o_id, rng.gen_range(0.0..1.0));
-    //         }
-    //         output_layer.push(o_id);
-    //     }
-    //     net.set_input_id(input_layer);
-    //     net.set_output_id(output_layer);
+    #[test]
+    fn test_network_fitting() {
+        let test_data: [[f64; 3]; 3] = [[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.5, 1.2, 2.7]];
+        let mut net = Network::new();
+        let mut input_layer: usize = net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing);
+        let mut hidden_layer: usize = net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
+        let mut output_layer: usize = net.new_layer(1, 0.0, ActivationFunctionEnum::ReLU);
+        net.connect_layer(input_layer, hidden_layer, 1.0);
+        net.connect_layer(hidden_layer, output_layer, 1.0);
+        net.set_input_layer(input_layer);
+        net.set_output_layer(output_layer);
         
-    //     macro_rules! setup_and_fitting {
-    //         ($input: expr => $output: expr, $rate: expr) => {
-    //             {
-    //                 for n in 0..5{
-    //                     net.set_input(Vec::from([$input*(n as f64)]));
-    //                     net.next();
-    //                     net.fitting(Vec::from([$output*(n as f64)]), $rate);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     for _ in 1..=100 { setup_and_fitting!(1.0 => 2.0, 0.001); }
-    //     for i in 1..=10 { setup_and_fitting!(1.0 => 2.0, 0.001/(f64::try_from(i).unwrap())); }
-    //     for _ in 1..=1000 { setup_and_fitting!(1.0 => 2.0, 0.000001); }
+        for rate in [0.001, 0.0001] {
+            for _ in 1..=10000 {
+                for test_pair in test_data {
+                    net.set_input(Vec::from(&test_pair[0..=1]));
+                    net.next();
+                    net.fitting(Vec::from([test_pair[2]]), rate);
+                }
+            }
+        }
         
-    //     net.set_input(Vec::from([10.0]));
-    //     net.next();
-    //     let o = net.get_node(o_id);
-    //     let o_b = o.b;
-    //     println!("{} {}", o.input_w[0], o_b);
-    //     assert_eq!(net.get_output(), Vec::from([10.0]));
-    //     // assert_eq!(net.get_output(), Vec::from([18.143440974766087]));
-    // }
+        for test_pair in test_data {
+            net.set_input(Vec::from(&test_pair[0..=1]));
+            net.next();
+            assert!((net.get_output()[0] - test_pair[2]).abs() < 1.0);
+        }
+    }
 }
