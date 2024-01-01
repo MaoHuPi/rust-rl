@@ -12,12 +12,19 @@ use serde::{Serialize, Deserialize};
 use colored::Colorize;
 // Colored print and panic.
 
+fn check_ian(x: f64, message: String) {
+    if x.is_infinite() {
+        panic!(r#"[{}]: function input is Inf! Message: "{}"."#, "check_ian".red(), message.yellow());
+    } else if x.is_nan() {
+        panic!(r#"[{}]: function input is NaN! Message: "{}"."#, "check_ian".red(), message.yellow());
+    }
+}
 fn check_domain(x: f64, min: f64, max:f64) -> Result<f64, String> {
     // To check the input value is between the min and max or not.
     if x > max {
-        Err(format!("[{}]: Function input out of range! x must lower then max value({}).", "check_domain".red(), max))
+        Err(format!(r#"[{}]: Function input out of range! x must lower then max value({}), but get "{}"."#, "check_domain".red(), max.to_string().yellow(), x.to_string().yellow()))
     } else if x < min {
-        Err(format!("[{}]: Function input out of range! x must higher then min value({}).", "check_domain".red(), min))
+        Err(format!(r#"[{}]: Function input out of range! x must higher then min value({}), but get "{}"."#, "check_domain".red(), min.to_string().yellow(), x.to_string().yellow()))
     } else {
         Ok(x)
     }
@@ -38,6 +45,9 @@ impl ActivationFunction {
     fn do_nothing(x: f64) -> f64 {
         x
     }
+    fn do_nothing_derivative(x: f64) -> f64 {
+        1.0
+    }
     fn sigmoid(x: f64) -> f64 {
         1.0 / (1.0 + std::f64::consts::E.powf(-x))
     }
@@ -49,6 +59,9 @@ impl ActivationFunction {
             Err(e) => panic!("{}", e)
         }
     }
+    fn sigmoid_derivative(x: f64) -> f64 {
+        x / (1.0 - x)
+    }
     fn tanh(x: f64) -> f64 {
         let e_powf_2x: f64 = std::f64::consts::E.powf(2.0*x);
         (e_powf_2x - 1.0) / (e_powf_2x + 1.0)
@@ -59,6 +72,9 @@ impl ActivationFunction {
             Err(e) => panic!("{}", e)
         }
     }
+    fn tanh_derivative(x: f64) -> f64 {
+        1.0 - ActivationFunction::tanh(x).powi(2)
+    }
     fn relu(x: f64) -> f64 {
         if x <= 0.0 {0.0} else {x}
     }
@@ -67,6 +83,9 @@ impl ActivationFunction {
             Ok(v) => if v <= 0.0 {0.0} else {v}, 
             Err(e) => panic!("{}", e)
         }
+    }
+    fn relu_derivative(x: f64) -> f64 {
+        if x <= 0.0 {0.0} else {1.0}
     }
     pub fn get_function(activation_fn_enum: ActivationFunctionEnum) -> fn(f64) -> f64 {
         match activation_fn_enum {
@@ -82,6 +101,14 @@ impl ActivationFunction {
             ActivationFunctionEnum::Sigmoid => ActivationFunction::sigmoid_inverse, 
             ActivationFunctionEnum::Tanh => ActivationFunction::tanh_inverse, 
             ActivationFunctionEnum::ReLU => ActivationFunction::relu_inverse
+        }
+    }
+    pub fn get_derivative(activation_fn_enum: ActivationFunctionEnum) -> fn(f64) -> f64 {
+        match activation_fn_enum {
+            ActivationFunctionEnum::DoNothing => ActivationFunction::do_nothing_derivative, 
+            ActivationFunctionEnum::Sigmoid => ActivationFunction::sigmoid_derivative, 
+            ActivationFunctionEnum::Tanh => ActivationFunction::tanh_derivative, 
+            ActivationFunctionEnum::ReLU => ActivationFunction::relu_derivative
         }
     }
     pub fn get_name_from_enum(activation_fn_enum: ActivationFunctionEnum) -> String {
@@ -177,31 +204,48 @@ impl Node {
     }
     pub fn fitting(&mut self, anticipated_value: f64, learning_rate: f64) {
         if self.input_count > 0 {
-            let anticipated_value: f64 = ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value);
+            // let anticipated_value: f64 = ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value);
             // reverse anticipated_value by reversed activation function.
             
+            /* 20231216 about Gradient Descent
+             * 階段性錯誤說明與重新推導
+             * 因為 self.value 在 self.calc_value 函式中所做的是 F_a(sum{v_i + w_i} + b) ，
+             * 所以 cost 為 pow{self.value - anticipated_value, 2} ，
+             * 即是 pow{F_a(sum{v_i + w_i} + b) - anticipated_value, 2} 。
+             * 
+             * 因此如果是以 F_a 的反函數來進行初步處理的話，應會變成 pow{f_a_inv(F_a(sum{v_i + w_i} + b)) - f_a_inv(anticipated_value), 2} ，
+             * 而非 pow{F_a(sum{v_i + w_i} + b) - f_a_inv(anticipated_value), 2} 。
+             * 
+             * 至於最正確的做法應該是直接對 cost 本身求導，
+             * 而不是在 cost 內部又進行啟動函數反函數的先行處理，
+             * 所以應該這樣堆導：
+             * partial{cost, w_i}
+             *  = partial{pow{F_a(sum{v_i + w_i} + b) - anticipated_value, 2}, w_i}
+             *    (let A(v_i, w_i, b) = sum{v_i + w_i} + b, B(u) = F_a(u), C(v) = pow{v - anticipated_value, 2})
+             *  = der{C, v} * der{B, u} * partial{A, w_i}
+             *  = (2*self.value-2anticipated_value) * (self.value*(1-self.value)) * (v_i)
+             */
+            // /* before 20231216 */cost := (self.value - inverse_activation_fn(anticipated_value)).powi(2);
             // cost := (self.value - anticipated_value).powi(2);
+            let derivative_c_b: f64 = (2.0*self.value-2.0*anticipated_value) * (ActivationFunction::get_derivative(self.activation_fn_enum)(self.value));
             for i in 0..self.input_count {
                 self.calc_value();
                 let value_i = self.input_value[i];
-                let w_i = self.input_w[i];
-                let gradient: f64 = 2.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
-                // partial w_i of cost := 4.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
-                let gradient = gradient;
+                // /* before 20231216 */let gradient: f64 = 2.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
+                let gradient: f64 = derivative_c_b * (value_i);
+                // check_ian(gradient, format!("2.0*{value_i}.powi(2)*{w_i} + 2.0*({0}-{1}*{w_i} + {2} - {anticipated_value})*{value_i}", self.value, value_i, self.b).to_string());
                 self.input_w[i] -= gradient*learning_rate;
             }
             self.calc_value();
-            // let gradient: f64 = -(2.0*self.b + 2.0*(self.value-self.b - anticipated_value));
-            let gradient: f64 = 2.0*(anticipated_value - self.value);
-            // partial b of cost := -(4.0*self.b + 2.0*(self.value-self.b - anticipated_value));
+            // /* before 20231216 */let gradient: f64 = 2.0*(anticipated_value - self.value);
+            let gradient: f64 = derivative_c_b * (1.0);
             self.b -= gradient*learning_rate;
             
             for i in 0..self.input_count {
                 self.calc_value();
-                let value_i = self.input_value[i];
                 let w_i = self.input_w[i];
-                let gradient: f64 = 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
-                // partial value_i of cost := 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
+                // /* before 20231216 */let gradient: f64 = 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
+                let gradient: f64 = derivative_c_b * (w_i);
                 self.input_value[i] -= gradient*learning_rate;
             }
         }
