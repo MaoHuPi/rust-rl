@@ -36,29 +36,24 @@ fn main() {
         // Test something important or just fun.
         // Currently, it is an 3-layer random network with cycle connect the hidden layer.
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
-        let test_data: [[f64; 3]; 3] = [[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.5, 1.2, 2.7]];
+        let test_data: [[f64; 6]; 3] = [[1.0, 2.0, 3.0, -1.0, 2.0, 0.5], [2.0, 4.0, 6.0, -2.0, 8.0, 0.5], [1.5, 1.2, 2.7, 0.3, 1.8, 1.25]];
         let mut net = Network::new();
         let input_layer: usize = net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing);
-        let hidden_layer_list: Vec<usize> = vec![false; 1].iter().map(|n| net.new_layer(5, 0.0, ActivationFunctionEnum::ReLU)).collect::<Vec<usize>>();
-        let output_layer: usize = net.new_layer(1, rng.gen_range(-1.0..1.0), ActivationFunctionEnum::ReLU);
-        net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
-        for i in 0..hidden_layer_list.len()-1 {
-            net.connect_layer(hidden_layer_list[i], hidden_layer_list[i+1], 0.1);
-        }
-        net.connect_layer(hidden_layer_list[hidden_layer_list.len()-1], output_layer, 0.1);
+        // let hidden_layer_list: Vec<usize> = vec![false; 1].iter().map(|n| net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing)).collect::<Vec<usize>>();
+        let output_layer: usize = net.new_layer(2, rng.gen_range(-1.0..1.0), ActivationFunctionEnum::DoNothing);
+        net.connect_layer(input_layer, output_layer, 0.1);
+        // net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
+        // for i in 0..hidden_layer_list.len()-1 {
+        //     net.connect_layer(hidden_layer_list[i], hidden_layer_list[i+1], 0.1);
+        // }
+        // net.connect_layer(hidden_layer_list[hidden_layer_list.len()-1], output_layer, 0.1);
         net.set_input_layer(input_layer);
         net.set_output_layer(output_layer);
         
-        for rate in [0.01, 0.001, 0.0001] {
-            for _ in 1..=10000 {
-                // for test_pair in test_data {
-                //     net.set_input(Vec::from(&test_pair[0..=1]));
-                //     net.next();
-                //     net.fitting(Vec::from([test_pair[2]]), rate);
-                // }
-
-                let input_data: Vec <f64> = Vec::from([rng.gen_range(0.0..10.0), rng.gen_range(0.0..10.0)]);
-                let anticipated_data: Vec<f64> = Vec::from([(input_data[0] + input_data[1])/50.0]);
+        for rate in [0.01, 0.01, 0.0001] {
+            for _ in 1..=500 {
+                let input_data: Vec <f64> = Vec::from([rng.gen_range(0..10) as f64, rng.gen_range(0..10) as f64]);
+                let anticipated_data: Vec<f64> = Vec::from([input_data[0] + input_data[1], input_data[0] - input_data[1]]);
                 net.set_input(input_data);
                 net.next();
                 net.fitting(anticipated_data, rate);
@@ -68,7 +63,9 @@ fn main() {
         for test_pair in test_data {
             net.set_input(Vec::from(&test_pair[0..=1]));
             net.next();
-            println!("{} {}", net.get_output()[0]*50.0, test_pair[2]);
+            let output = net.get_output();
+            println!("{}+{} = {} (must be {})", test_pair[0], test_pair[1], output[0], test_pair[2]);
+            println!("{}-{} = {} (must be {})", test_pair[0], test_pair[1], output[1], test_pair[3]);
         }
 
         let mut file = File::create("model/net.json").unwrap();
