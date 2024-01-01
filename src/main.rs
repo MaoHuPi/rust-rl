@@ -1,5 +1,5 @@
 /*
- * 2023 (c) MaoHuPi
+ * 2024 (c) MaoHuPi
  * rust-rl/src/main.rs
  * Referred to [【機器學習2021】概述增強式學習 (Reinforcement Learning, RL)...](https://youtu.be/XWukX-ayIrs?si=LuWwekF-Jq4K2np_)
  */

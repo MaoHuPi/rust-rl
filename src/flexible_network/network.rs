@@ -1,5 +1,5 @@
 /*
- * 2023 (c) MaoHuPi
+ * 2024 (c) MaoHuPi
  * rust-rl/src/flexible_network/network.rs
  */
 
@@ -207,7 +207,7 @@ impl Node {
             // let anticipated_value: f64 = ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value);
             // reverse anticipated_value by reversed activation function.
             
-            /* 20231216 about Gradient Descent
+            /* 20240101 about Gradient Descent
              * 階段性錯誤說明與重新推導
              * 因為 self.value 在 self.calc_value 函式中所做的是 F_a(sum{v_i + w_i} + b) ，
              * 所以 cost 為 pow{self.value - anticipated_value, 2} ，
@@ -225,26 +225,26 @@ impl Node {
              *  = der{C, v} * der{B, u} * partial{A, w_i}
              *  = (2*self.value-2anticipated_value) * (self.value*(1-self.value)) * (v_i)
              */
-            // /* before 20231216 */cost := (self.value - inverse_activation_fn(anticipated_value)).powi(2);
+            // /* before 20240101 */cost := (self.value - inverse_activation_fn(anticipated_value)).powi(2);
             // cost := (self.value - anticipated_value).powi(2);
             let derivative_c_b: f64 = (2.0*self.value-2.0*anticipated_value) * (ActivationFunction::get_derivative(self.activation_fn_enum)(self.value));
             for i in 0..self.input_count {
                 self.calc_value();
                 let value_i = self.input_value[i];
-                // /* before 20231216 */let gradient: f64 = 2.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
+                // /* before 20240101 */let gradient: f64 = 2.0*value_i.powi(2)*w_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*value_i;
                 let gradient: f64 = derivative_c_b * (value_i);
                 // check_ian(gradient, format!("2.0*{value_i}.powi(2)*{w_i} + 2.0*({0}-{1}*{w_i} + {2} - {anticipated_value})*{value_i}", self.value, value_i, self.b).to_string());
                 self.input_w[i] -= gradient*learning_rate;
             }
             self.calc_value();
-            // /* before 20231216 */let gradient: f64 = 2.0*(anticipated_value - self.value);
+            // /* before 20240101 */let gradient: f64 = 2.0*(anticipated_value - self.value);
             let gradient: f64 = derivative_c_b * (1.0);
             self.b -= gradient*learning_rate;
             
             for i in 0..self.input_count {
                 self.calc_value();
                 let w_i = self.input_w[i];
-                // /* before 20231216 */let gradient: f64 = 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
+                // /* before 20240101 */let gradient: f64 = 2.0*w_i.powi(2)*value_i + 2.0*(self.value-value_i*w_i + self.b - anticipated_value)*w_i;
                 let gradient: f64 = derivative_c_b * (w_i);
                 self.input_value[i] -= gradient*learning_rate;
             }
