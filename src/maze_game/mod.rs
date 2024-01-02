@@ -12,6 +12,12 @@ enum WallPhase {
     Up, 
     Down
 }
+pub struct Game {
+    maze: Vec<Vec<usize>>, 
+    player: [usize; 2], 
+    start: [usize; 2], 
+    destination: [usize; 2]
+}
 pub fn generate_maze(width: usize, height: usize) -> Vec<Vec<usize>> {
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let size: usize = width*height;

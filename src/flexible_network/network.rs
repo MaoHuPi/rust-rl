@@ -210,23 +210,11 @@ impl Node {
             // let anticipated_value: f64 = ActivationFunction::get_inverse(self.activation_fn_enum.clone())(anticipated_value);
             // reverse anticipated_value by reversed activation function.
             
-            /* 20240101 about Gradient Descent
-             * 階段性錯誤說明與重新推導
-             * 因為 self.value 在 self.calc_value 函式中所做的是 F_a(sum{v_i + w_i} + b) ，
-             * 所以 cost 為 pow{self.value - anticipated_value, 2} ，
-             * 即是 pow{F_a(sum{v_i + w_i} + b) - anticipated_value, 2} 。
-             * 
-             * 因此如果是以 F_a 的反函數來進行初步處理的話，應會變成 pow{f_a_inv(F_a(sum{v_i + w_i} + b)) - f_a_inv(anticipated_value), 2} ，
-             * 而非 pow{F_a(sum{v_i + w_i} + b) - f_a_inv(anticipated_value), 2} 。
-             * 
-             * 至於最正確的做法應該是直接對 cost 本身求導，
-             * 而不是在 cost 內部又進行啟動函數反函數的先行處理，
-             * 所以應該這樣堆導：
-             * partial{cost, w_i}
-             *  = partial{pow{F_a(sum{v_i + w_i} + b) - anticipated_value, 2}, w_i}
-             *    (let A(v_i, w_i, b) = sum{v_i + w_i} + b, B(u) = F_a(u), C(v) = pow{v - anticipated_value, 2})
-             *  = der{C, v} * der{B, u} * partial{A, w_i}
-             *  = (2*self.value-2anticipated_value) * (self.value*(1-self.value)) * (v_i)
+            /* 20240101 Update about Gradient Descent
+             * rust-rl/DEVELOP.md > Develop Notes > 20240101 - A000001
+             */
+            /* 20240102 Question about Gradient Descent
+             * rust-rl/DEVELOP.md > Develop Notes > 20240102 - A000002
              */
             // /* before 20240101 */cost := (self.value - inverse_activation_fn(anticipated_value)).powi(2);
             // cost := (self.value - anticipated_value).powi(2);
