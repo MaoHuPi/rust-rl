@@ -141,6 +141,8 @@ pub struct Node {
     // Weights of the pipe between this node and it's source node.
     input_value: Vec<f64>, 
     value: f64, 
+    calc_planned: bool, 
+    // Operate by the "next" function of network.
     b: f64, 
     activation_fn_enum: ActivationFunctionEnum
     // Bias Terms
@@ -174,6 +176,7 @@ impl Node {
             input_w: Vec::new(), 
             input_value: Vec::new(), 
             value: 0.0, 
+            calc_planned: false, 
             b: 0.0, 
             activation_fn_enum: ActivationFunctionEnum::DoNothing
         }
@@ -419,6 +422,12 @@ impl Network {
     pub fn next(&mut self) {
         // Next step of this network.
         // Update value from top to bottom in the node chain. 
+
+        for id in 0..self.nodes.len() {
+            self.nodes[id].calc_planned = false;
+        }
+        // Set all of the node to not calculated yet.
+
         let mut queue_list: Vec<NodeFetchQueueItem> = Vec::new();
         let output_id: Vec<usize> = self.output_id.clone();
         for id in output_id {
@@ -443,7 +452,11 @@ impl Network {
                     });
                 } else {
                     still_queue_list.push(queue_item);
-                    new_queue_list.append(&mut self.nodes[from_id].fetch_value());
+                    if !self.nodes[from_id].calc_planned {
+                        // Use "calc_planned" flag to prevent a node chain fetch value so more times.
+                        new_queue_list.append(&mut self.nodes[from_id].fetch_value());
+                        self.nodes[from_id].calc_planned = true;
+                    }
                 }
             }
             for item in &update_data {

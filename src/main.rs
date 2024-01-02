@@ -9,6 +9,7 @@ use std::vec::Vec;
 use rand::Rng;
 use std::fs::File;
 use std::io::prelude::*;
+use std::time::SystemTime;
 
 mod flexible_network;
 use crate::flexible_network::network::*;
@@ -39,21 +40,21 @@ fn main() {
         let test_data: [[f64; 6]; 3] = [[1.0, 2.0, 3.0, -1.0, 2.0, 0.5], [2.0, 4.0, 6.0, -2.0, 8.0, 0.5], [1.5, 1.2, 2.7, 0.3, 1.8, 1.25]];
         let mut net = Network::new();
         let input_layer: usize = net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing);
-        // let hidden_layer_list: Vec<usize> = vec![false; 1].iter().map(|n| net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing)).collect::<Vec<usize>>();
-        let output_layer: usize = net.new_layer(2, rng.gen_range(-1.0..1.0), ActivationFunctionEnum::DoNothing);
-        net.connect_layer(input_layer, output_layer, 0.1);
-        // net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
-        // for i in 0..hidden_layer_list.len()-1 {
-        //     net.connect_layer(hidden_layer_list[i], hidden_layer_list[i+1], 0.1);
-        // }
-        // net.connect_layer(hidden_layer_list[hidden_layer_list.len()-1], output_layer, 0.1);
+        let hidden_layer_list: Vec<usize> = vec![false; 1].iter().map(|n| net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing)).collect::<Vec<usize>>();
+        let output_layer: usize = net.new_layer(1, rng.gen_range(-1.0..1.0), ActivationFunctionEnum::DoNothing);
+        // net.connect_layer(input_layer, output_layer, 0.1);
+        net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
+        for i in 0..hidden_layer_list.len()-1 {
+            net.connect_layer(hidden_layer_list[i], hidden_layer_list[i+1], 0.1);
+        }
+        net.connect_layer(hidden_layer_list[hidden_layer_list.len()-1], output_layer, 0.1);
         net.set_input_layer(input_layer);
         net.set_output_layer(output_layer);
         
-        for rate in [0.01, 0.01, 0.0001] {
-            for _ in 1..=500 {
+        for rate in [0.01, 0.001, 0.0001] {
+            for _ in 1..=10000 {
                 let input_data: Vec <f64> = Vec::from([rng.gen_range(0..10) as f64, rng.gen_range(0..10) as f64]);
-                let anticipated_data: Vec<f64> = Vec::from([input_data[0] + input_data[1], input_data[0] - input_data[1]]);
+                let anticipated_data: Vec<f64> = Vec::from([input_data[0] + input_data[1]]);
                 net.set_input(input_data);
                 net.next();
                 net.fitting(anticipated_data, rate);
@@ -65,16 +66,20 @@ fn main() {
             net.next();
             let output = net.get_output();
             println!("{}+{} = {} (must be {})", test_pair[0], test_pair[1], output[0], test_pair[2]);
-            println!("{}-{} = {} (must be {})", test_pair[0], test_pair[1], output[1], test_pair[3]);
         }
 
         let mut file = File::create("model/net.json").unwrap();
         let _  = file.write_all(serde_json::to_string(&net.export_data()).unwrap().as_bytes());
         
         println!("done!");
-    };
+    }
     // until_ok!(try_fitting);
+    let start_time: SystemTime = SystemTime::now();
     try_fitting();
+    match start_time.elapsed() {
+        Ok(elapsed) => { println!("use time: {}ms", elapsed.as_millis()); }
+        Err(_) => {}
+    }
     
 
     /* load modle */
