@@ -215,6 +215,7 @@ impl Node {
              */
             /* 20240102 Question about Gradient Descent
              * rust-rl/DEVELOP.md > Develop Notes > 20240102 - A000002
+             * rust-rl/DEVELOP.md > Develop Notes > 20240105 - A000003
              */
             // /* before 20240101 */cost := (self.value - inverse_activation_fn(anticipated_value)).powi(2);
             // cost := (self.value - anticipated_value).powi(2);
