@@ -4,38 +4,38 @@ use std::vec::Vec;
 pub type Fsize = f64;
 
 struct Node {
-    is_input: bool, 
-    input_count: usize, 
-    input_value: Vec<Fsize>, 
-    value: Fsize, 
-    d: Fsize, 
-    output_id: Vec<usize>, 
-    output_index: Vec<usize>, 
-    output_w: Vec<Fsize>
+    is_input: bool,
+    input_count: usize,
+    input_value: Vec<Fsize>,
+    value: Fsize,
+    d: Fsize,
+    output_id: Vec<usize>,
+    output_index: Vec<usize>,
+    output_w: Vec<Fsize>,
 }
 impl Node {
     pub fn new() -> Self {
         Node {
-            is_input: false, 
-            input_count: 0, 
-            input_value: Vec::new(), 
-            value: 0.0, 
-            d: 0.0, 
-            output_id: Vec::new(), 
-            output_index: Vec::new(), 
-            output_w: Vec::new()
+            is_input: false,
+            input_count: 0,
+            input_value: Vec::new(),
+            value: 0.0,
+            d: 0.0,
+            output_id: Vec::new(),
+            output_index: Vec::new(),
+            output_w: Vec::new(),
         }
     }
     pub fn new_input() -> Self {
         Node {
-            is_input: true, 
-            input_count: 1, 
-            input_value: Vec::new(), 
-            value: 0.0, 
-            d: 0.0, 
-            output_id: Vec::new(), 
-            output_index: Vec::new(), 
-            output_w: Vec::new()
+            is_input: true,
+            input_count: 1,
+            input_value: Vec::new(),
+            value: 0.0,
+            d: 0.0,
+            output_id: Vec::new(),
+            output_index: Vec::new(),
+            output_w: Vec::new(),
         }
     }
     pub fn new_input_source(&mut self) -> usize {
@@ -64,25 +64,23 @@ impl Node {
     pub fn send_value(&mut self) -> Vec<Fsize> {
         let mut output_value = Vec::new();
         let _ = output_value.try_reserve(self.output_w.len());
-        let _ = output_value.extend(self.output_w.iter().map(|&w| {
-            w * self.value
-        }));
+        let _ = output_value.extend(self.output_w.iter().map(|&w| w * self.value));
         output_value
     }
 }
 
 struct Network {
-    nodes: Vec<Node>, 
-    input_id: Vec<usize>, 
-    output_id: Vec<usize>
+    nodes: Vec<Node>,
+    input_id: Vec<usize>,
+    output_id: Vec<usize>,
 }
 struct NetworkUpdateItem(usize, usize, Fsize);
 impl Network {
     pub fn new() -> Self {
         Network {
-            nodes: Vec::new(), 
-            input_id: Vec::new(), 
-            output_id: Vec::new()
+            nodes: Vec::new(),
+            input_id: Vec::new(),
+            output_id: Vec::new(),
         }
     }
     pub fn new_node(&mut self) -> usize {
