@@ -42,12 +42,17 @@ fn random_as_probability<T>(value_list: Vec<T>, probability_list :Vec<f64>) -> T
     }
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let random_result: f64 = rng.gen_range(0.0..sum);
-    for case_segment in case_segment_list {
-        if random_result < case_segment.0 {
-            case_segment.1
+    let j: usize = 0;
+    loop {
+        if j > case_segment_list.len()-1 {
+            break case_segment_list[0].1;
         }
+        let case_segment: (f64, T) = case_segment_list[j];
+        if random_result < case_segment.0 {
+            break case_segment.1;
+        }
+        j += 1;
     }
-    case_segment_list[0].1
 }
 
 fn main() {
