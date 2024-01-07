@@ -5,14 +5,15 @@
  */
 
 use colored::Colorize;
+use getch::Getch;
 use rand::Rng;
+use std::collections::btree_set;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::iter;
 use std::time::SystemTime;
 use std::vec::Vec;
-use getch::Getch;
 
 mod multi_seg_network;
 use crate::multi_seg_network::flexible_network::{ActivationFunctionEnum, FlexibleNetwork};
@@ -31,6 +32,22 @@ macro_rules! until_ok {
             }
         }
     };
+}
+fn random_as_probability<T>(value_list: Vec<T>, probability_list :Vec<f64>) -> T {
+    let mut sum: f64 = 0.0;
+    let mut case_segment_list: Vec<(f64, T)> = Vec::new();
+    for i in 0..probability_list.len() {
+        sum += probability_list[i];
+        case_segment_list.push((sum, value_list[i]));
+    }
+    let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+    let random_result: f64 = rng.gen_range(0.0..sum);
+    for case_segment in case_segment_list {
+        if random_result < case_segment.0 {
+            case_segment.1
+        }
+    }
+    case_segment_list[0].1
 }
 
 fn main() {
@@ -148,38 +165,162 @@ fn main() {
     // // let map: String = serde_json::to_string(&maze).unwrap();
     // print!("{}", map);
 
-    let mut game: Game = Game::new();
+    /* maze game */
+    // let mut game: Game = Game::new();
     // game.set_screen_size([21, 21]);
-    // game.set_maze_size([12, 12]);
-    game.set_screen_size([21, 21]);
-    game.set_maze_size([10, 10]);
-    game.start();
-    while game.playing() {
-        let screen: String = game.get_screen_string();
-        println!("");
-        println!("{}", screen);
-        let mut action_key: u8 = 0;
-        let g = Getch::new();
-        action_key = g.getch().unwrap();
-        game.action(match action_key {
-            3 => break,
-            // Press [Ctrl] + [C] to exit the game.
-            27 => break,
-            // Press [Escape] to exit the game.
-            119 => GameAction::Up,
-            // Press [W] to go up.
-            115 => GameAction::Down,
-            // Press [S] to go down.
-            97 => GameAction::Left,
-            // Press [A] to go left.
-            100 => GameAction::Right,
-            // Press [D] to go right.
-            _ => GameAction::Hold,
-            // Press other key just do nothing.
-        });
-        io::stdout().flush().unwrap();
+    // game.set_maze_size([10, 10]);
+    // game.start();
+    // while game.playing() {
+    //     let screen: String = game.get_screen_string();
+    //     println!("");
+    //     println!("{}", screen);
+    //     let mut action_key: u8 = 0;
+    //     let g = Getch::new();
+    //     action_key = g.getch().unwrap();
+    //     game.action(match action_key {
+    //         3 => break,
+    //         // Press [Ctrl] + [C] to exit the game.
+    //         27 => break,
+    //         // Press [Escape] to exit the game.
+    //         119 => GameAction::Up,
+    //         // Press [W] to go up.
+    //         115 => GameAction::Down,
+    //         // Press [S] to go down.
+    //         97 => GameAction::Left,
+    //         // Press [A] to go left.
+    //         100 => GameAction::Right,
+    //         // Press [D] to go right.
+    //         _ => GameAction::Hold,
+    //         // Press other key just do nothing.
+    //     });
+    //     io::stdout().flush().unwrap();
+    // }
+    // println!("score: {}", game.get_score());
+
+    // match start_time.elapsed() {
+    //     Ok(elapsed) => {
+    //         println!("use time: {}ms", elapsed.as_millis());
+    //     }
+    //     Err(_) => {}
+    // }
+
+
+    fn try_fitting() {
+        let mut file: File = File::open("model/net.json").unwrap();
+        let mut content = String::new();
+        file.read_to_string(&mut content).unwrap();
+        let net_data: String = content.to_string();
+        let mut multi_seg: MultiSegNetwork = MultiSegNetwork::new();
+        multi_seg.import_data(net_data);
+        let flexible_net_id: usize = 0;
+
+        // 
+
+        // let mut flexible_net = FlexibleNetwork::new();
+        // let input_layer: usize = flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
+        // let hidden_layer_list: Vec<usize> = vec![false; 2]
+        //     .iter()
+        //     .map(|n| flexible_net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing))
+        //     .collect::<Vec<usize>>();
+        // let output_layer: usize = flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
+        // flexible_net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
+        // for i in 0..hidden_layer_list.len() - 1 {
+        //     flexible_net.connect_layer(hidden_layer_list[i], hidden_layer_list[i + 1], 0.1);
+        // }
+        // flexible_net.connect_layer(
+        //     hidden_layer_list[hidden_layer_list.len() - 1],
+        //     output_layer,
+        //     0.1,
+        // );
+        // flexible_net.set_input_layer(input_layer);
+        // flexible_net.set_output_layer(output_layer);
+
+        // let mut output_function: FunctionSegment = FunctionSegment::new();
+        // output_function.set_function(FunctionSegmentFunctionEnum::SoftMax);
+
+        // let mut multi_seg: MultiSegNetwork = MultiSegNetwork::new();
+        // let flexible_net_id = multi_seg.push_seg(flexible_net);
+        // multi_seg.push_seg(output_function);
+        
+        // 
+
+        let rate: f64 = 0.00062;
+        for _ in 0..10000 {
+            let mut data_pair_list: Vec<[Vec<f64>; 2]> = Vec::new();
+
+            let mut game: Game = Game::new();
+            game.set_screen_size([5, 5]);
+            game.set_maze_size([2, 2]);
+            game.start();
+            while game.playing() {
+                if game.get_step_count() > 10 {
+                    break;
+                }
+                let screen_string: String = game.get_screen_string();
+                println!("");
+                println!("{}", screen_string);
+                let screen: Vec<Vec<ScreenElement>> = game.get_screen();
+                let input_data = screen
+                    .iter()
+                    .map(|row| {
+                        row.iter()
+                            .map(|e| match e {
+                                ScreenElement::Empty => 0.0,
+                                ScreenElement::Road => 1.0,
+                                ScreenElement::Wall => 2.0,
+                                ScreenElement::StartPoint => 3.0,
+                                ScreenElement::DestinationPoint => 4.0,
+                                ScreenElement::Player => 5.0,
+                            }/5.0)
+                            .collect::<Vec<f64>>()
+                    })
+                    .collect::<Vec<Vec<f64>>>()
+                    .concat();
+                multi_seg.set_input(input_data.clone());
+                multi_seg.next();
+                let mut action: GameAction = GameAction::Hold;
+                let mut last_value: f64 = -100.0;
+                let output_data: Vec<f64> = multi_seg.get_output();
+                if (output_data[0]).is_nan() {
+                    panic!("NaN! Check if learning rate is to large.");
+                }
+                for i in 0..output_data.len() {
+                    let value: f64 = output_data[i];
+                    if value > last_value {
+                        last_value = value;
+                        action = match i {
+                            0 => GameAction::Up,
+                            1 => GameAction::Down,
+                            2 => GameAction::Left,
+                            3 => GameAction::Right,
+                            _ => GameAction::Hold,
+                        };
+                    }
+                }
+                game.action(action);
+                data_pair_list.push([input_data, output_data]);
+            }
+            let score: f64 = game.get_score();
+            println!("score: {score}");
+            let reword = score-0.5;
+            for data_pair in data_pair_list {
+                multi_seg.set_input(data_pair[0].clone());
+                multi_seg.next();
+                multi_seg.operate_seg(flexible_net_id, |seg| {
+                    seg.fitting(data_pair[1].clone().iter().map(|v| v * reword).collect::<Vec<f64>>(), rate);
+                });
+            }
+        }
+
+        let mut file = File::create("model/net.json").unwrap();
+        let _ = file.write_all(multi_seg.export_data().as_bytes());
+
+        println!("done!");
     }
-    println!("score: {}", game.get_score());
+    // until_ok!(try_fitting);
+    for _ in 0..1000 {
+        try_fitting();
+    }
 
     match start_time.elapsed() {
         Ok(elapsed) => {

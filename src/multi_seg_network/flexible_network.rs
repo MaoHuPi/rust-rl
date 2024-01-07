@@ -407,6 +407,7 @@ impl Segment for FlexibleNetwork {
             node.input_id = node_data.i_id.clone();
             node.input_w = node_data.i_w.clone();
             node.input_value = node.input_id.iter().map(|&x| 0.0).collect::<Vec<f64>>();
+            node.input_partial = node.input_value.clone();
             self.nodes.push(node);
         }
         self.input_id = data.i_id;

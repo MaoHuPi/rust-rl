@@ -42,7 +42,6 @@ pub struct Game {
     start_pos: [usize; 2],
     destination_pos: [usize; 2],
     playing: bool,
-    timer: SystemTime,
     step_count: usize,
     score: f64,
 }
@@ -59,7 +58,6 @@ impl Game {
             start_pos: [0; 2],
             destination_pos: [0; 2],
             playing: false,
-            timer: SystemTime::now(),
             step_count: 0,
             score: 0.0,
         }
@@ -79,6 +77,8 @@ impl Game {
         self.maze_width = hxw[1];
     }
     pub fn start(self: &mut Self) {
+        self.score = 0.0;
+        self.step_count = 0;
         let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         self.maze = Self::generate_maze(self.maze_height, self.maze_width);
         self.playing = true;
@@ -92,34 +92,25 @@ impl Game {
                 rng.gen_range(0..self.maze_width) * 2 + 1,
             ];
             if self.destination_pos[0] != self.start_pos[0]
-                && self.destination_pos[1] != self.start_pos[1]
+                || self.destination_pos[1] != self.start_pos[1]
             {
                 break;
             }
         }
         self.player_pos = self.start_pos.clone();
-        self.timer = SystemTime::now();
     }
     pub fn stop(self: &mut Self) {
-        match self.timer.elapsed() {
-            Ok(elapsed) => {
-                fn sub_abs(a: usize, b: usize) -> usize {
-                    if a > b {
-                        a - b
-                    } else {
-                        b - a
-                    }
-                }
-                let distance: usize = sub_abs(self.start_pos[0], self.destination_pos[0])
-                    + sub_abs(self.start_pos[1], self.destination_pos[1]);
-                self.score = 2.0
-                    - 2.0
-                        / (1.0
-                            + std::f64::consts::E
-                                .powf(-(self.step_count as f64) / (distance as f64)));
+        fn sub_abs(a: usize, b: usize) -> usize {
+            if a > b {
+                a - b
+            } else {
+                b - a
             }
-            Err(_) => {}
         }
+        let distance: usize = sub_abs(self.start_pos[0], self.destination_pos[0])
+            + sub_abs(self.start_pos[1], self.destination_pos[1]);
+        self.score = 2.0
+            - 2.0 / (1.0 + std::f64::consts::E.powf(-(self.step_count as f64) / (distance as f64)));
         self.playing = false;
     }
     pub fn playing(self: &mut Self) -> bool {
@@ -214,7 +205,7 @@ impl Game {
                 .map(|i| a_gt_b_sub_else_0(maze_distance[i], screen_distance[i]))
                 .collect::<Vec<usize>>();
             cut_index[1] = self.maze_height * 2 + 1 - cut_index[1];
-            cut_index[3] = self.maze_height * 2 + 1 - cut_index[3];
+            cut_index[3] = self.maze_width * 2 + 1 - cut_index[3];
             maze = maze
                 .iter()
                 .map(|row| row[cut_index[2]..cut_index[3]].to_vec())
