@@ -4,18 +4,20 @@
  * Referred to [【機器學習2021】概述增強式學習 (Reinforcement Learning, RL)...](https://youtu.be/XWukX-ayIrs?si=LuWwekF-Jq4K2np_)
  */
 
+use colored::Colorize;
 use rand::Rng;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
 use std::iter;
 use std::time::SystemTime;
 use std::vec::Vec;
-use colored::Colorize;
+use getch::Getch;
 
 mod multi_seg_network;
-use crate::multi_seg_network::*;
-use crate::multi_seg_network::flexible_network::{FlexibleNetwork, ActivationFunctionEnum};
+use crate::multi_seg_network::flexible_network::{ActivationFunctionEnum, FlexibleNetwork};
 use crate::multi_seg_network::function_segment::{FunctionSegment, FunctionSegmentFunctionEnum};
+use crate::multi_seg_network::*;
 
 mod maze_game;
 use crate::maze_game::*;
@@ -107,7 +109,7 @@ fn main() {
     //         let output = multi_seg.get_output();
     //         println!(
     //             "{}: {}+{} = {} (must be {}, delta {})",
-    //             "after SoftMax".green(), 
+    //             "after SoftMax".green(),
     //             test_pair[0],
     //             test_pair[1],
     //             output[0],
@@ -125,16 +127,16 @@ fn main() {
     // try_fitting();
 
     /* load modle */
-    let mut file: File = File::open("model/net.json").unwrap();
-    let mut content = String::new();
-    file.read_to_string(&mut content).unwrap();
-    let net_data: String = content.to_string();
+    // let mut file: File = File::open("model/net.json").unwrap();
+    // let mut content = String::new();
+    // file.read_to_string(&mut content).unwrap();
+    // let net_data: String = content.to_string();
 
-    let mut net: MultiSegNetwork = MultiSegNetwork::new();
-    net.import_data(net_data);
-    net.set_input(Vec::from([1.0, 1.5]));
-    net.next();
-    println!("output: {}", net.get_output()[0]);
+    // let mut net: MultiSegNetwork = MultiSegNetwork::new();
+    // net.import_data(net_data);
+    // net.set_input(Vec::from([1.0, 1.5]));
+    // net.next();
+    // println!("output: {}", net.get_output()[0]);
 
     /* generate maze map */
     // let maze: Vec<Vec<usize>> = generate_maze(10, 10);
@@ -145,6 +147,39 @@ fn main() {
     // }).collect::<Vec<String>>().join("\n");
     // // let map: String = serde_json::to_string(&maze).unwrap();
     // print!("{}", map);
+
+    let mut game: Game = Game::new();
+    // game.set_screen_size([21, 21]);
+    // game.set_maze_size([12, 12]);
+    game.set_screen_size([21, 21]);
+    game.set_maze_size([10, 10]);
+    game.start();
+    while game.playing() {
+        let screen: String = game.get_screen_string();
+        println!("");
+        println!("{}", screen);
+        let mut action_key: u8 = 0;
+        let g = Getch::new();
+        action_key = g.getch().unwrap();
+        game.action(match action_key {
+            3 => break,
+            // Press [Ctrl] + [C] to exit the game.
+            27 => break,
+            // Press [Escape] to exit the game.
+            119 => GameAction::Up,
+            // Press [W] to go up.
+            115 => GameAction::Down,
+            // Press [S] to go down.
+            97 => GameAction::Left,
+            // Press [A] to go left.
+            100 => GameAction::Right,
+            // Press [D] to go right.
+            _ => GameAction::Hold,
+            // Press other key just do nothing.
+        });
+        io::stdout().flush().unwrap();
+    }
+    println!("score: {}", game.get_score());
 
     match start_time.elapsed() {
         Ok(elapsed) => {
