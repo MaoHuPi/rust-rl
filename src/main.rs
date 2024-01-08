@@ -33,25 +33,27 @@ macro_rules! until_ok {
         }
     };
 }
-fn random_as_probability<T>(value_list: Vec<T>, probability_list :Vec<f64>) -> T {
+fn random_as_probability<T>(value_list: Vec<T>, probability_list: Vec<f64>) -> T
+where
+    T: Clone,
+{
     let mut sum: f64 = 0.0;
     let mut case_segment_list: Vec<(f64, T)> = Vec::new();
     for i in 0..probability_list.len() {
         sum += probability_list[i];
-        case_segment_list.push((sum, value_list[i]));
+        case_segment_list.push((sum, value_list[i].clone()));
     }
     let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     let random_result: f64 = rng.gen_range(0.0..sum);
-    let j: usize = 0;
+    let mut i: usize = 0;
     loop {
-        if j > case_segment_list.len()-1 {
-            break case_segment_list[0].1;
+        if i > case_segment_list.len() - 1 {
+            break case_segment_list[0].1.clone();
         }
-        let case_segment: (f64, T) = case_segment_list[j];
-        if random_result < case_segment.0 {
-            break case_segment.1;
+        if random_result < case_segment_list[i].0 {
+            break case_segment_list[i].1.clone();
         }
-        j += 1;
+        i += 1;
     }
 }
 
@@ -209,7 +211,6 @@ fn main() {
     //     Err(_) => {}
     // }
 
-
     fn try_fitting() {
         let mut file: File = File::open("model/net.json").unwrap();
         let mut content = String::new();
@@ -219,7 +220,7 @@ fn main() {
         multi_seg.import_data(net_data);
         let flexible_net_id: usize = 0;
 
-        // 
+        //
 
         // let mut flexible_net = FlexibleNetwork::new();
         // let input_layer: usize = flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
@@ -246,8 +247,8 @@ fn main() {
         // let mut multi_seg: MultiSegNetwork = MultiSegNetwork::new();
         // let flexible_net_id = multi_seg.push_seg(flexible_net);
         // multi_seg.push_seg(output_function);
-        
-        // 
+
+        //
 
         let rate: f64 = 0.00062;
         for _ in 0..10000 {
@@ -289,30 +290,47 @@ fn main() {
                 if (output_data[0]).is_nan() {
                     panic!("NaN! Check if learning rate is to large.");
                 }
-                for i in 0..output_data.len() {
-                    let value: f64 = output_data[i];
-                    if value > last_value {
-                        last_value = value;
-                        action = match i {
-                            0 => GameAction::Up,
-                            1 => GameAction::Down,
-                            2 => GameAction::Left,
-                            3 => GameAction::Right,
-                            _ => GameAction::Hold,
-                        };
-                    }
-                }
+                // for i in 0..output_data.len() {
+                //     let value: f64 = output_data[i];
+                //     if value > last_value {
+                //         last_value = value;
+                //         action = match i {
+                //             0 => GameAction::Up,
+                //             1 => GameAction::Down,
+                //             2 => GameAction::Left,
+                //             3 => GameAction::Right,
+                //             _ => GameAction::Hold,
+                //         };
+                //     }
+                // }
+                action = random_as_probability::<GameAction>(
+                    Vec::from([
+                        GameAction::Up,
+                        GameAction::Down,
+                        GameAction::Left,
+                        GameAction::Right,
+                        GameAction::Hold,
+                    ]),
+                    output_data.clone(),
+                );
                 game.action(action);
                 data_pair_list.push([input_data, output_data]);
             }
             let score: f64 = game.get_score();
             println!("score: {score}");
-            let reword = score-0.5;
+            let reword = score - 0.5;
             for data_pair in data_pair_list {
                 multi_seg.set_input(data_pair[0].clone());
                 multi_seg.next();
                 multi_seg.operate_seg(flexible_net_id, |seg| {
-                    seg.fitting(data_pair[1].clone().iter().map(|v| v * reword).collect::<Vec<f64>>(), rate);
+                    seg.fitting(
+                        data_pair[1]
+                            .clone()
+                            .iter()
+                            .map(|v| v * reword)
+                            .collect::<Vec<f64>>(),
+                        rate,
+                    );
                 });
             }
         }

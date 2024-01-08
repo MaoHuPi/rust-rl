@@ -24,7 +24,7 @@ pub enum ScreenElement {
     DestinationPoint,
     Player,
 }
-#[allow(unused)]
+#[derive(Clone)]
 pub enum GameAction {
     Up,
     Down,
