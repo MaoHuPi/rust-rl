@@ -12,6 +12,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::iter;
+use std::path::Path;
 use std::time::SystemTime;
 use std::vec::Vec;
 
@@ -22,6 +23,8 @@ use crate::multi_seg_network::*;
 
 mod maze_game;
 use crate::maze_game::*;
+
+const MODEL_PATH: &str = "model/net.json";
 
 macro_rules! until_ok {
     ($do_something: expr) => {
@@ -212,46 +215,47 @@ fn main() {
     // }
 
     fn try_fitting() {
-        let mut file: File = File::open("model/net.json").unwrap();
-        let mut content = String::new();
-        file.read_to_string(&mut content).unwrap();
-        let net_data: String = content.to_string();
         let mut multi_seg: MultiSegNetwork = MultiSegNetwork::new();
-        multi_seg.import_data(net_data);
-        let flexible_net_id: usize = 0;
+        let mut flexible_net_id: usize = 0;
+        if Path::new(MODEL_PATH).exists() {
+            let mut file: File = File::open(MODEL_PATH).unwrap();
+            let mut content = String::new();
+            file.read_to_string(&mut content).unwrap();
+            let net_data: String = content.to_string();
+            multi_seg.import_data(net_data);
+            flexible_net_id = 0;
+        } else {
+            let mut flexible_net = FlexibleNetwork::new();
+            let input_layer: usize =
+                flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
+            let hidden_layer_list: Vec<usize> = vec![false; 2]
+                .iter()
+                .map(|n| flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::ReLU))
+                .collect::<Vec<usize>>();
+            let output_layer: usize =
+                flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::ReLU);
+            flexible_net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
+            for i in 0..hidden_layer_list.len() - 1 {
+                flexible_net.connect_layer(hidden_layer_list[i], hidden_layer_list[i + 1], 0.1);
+            }
+            flexible_net.connect_layer(
+                hidden_layer_list[hidden_layer_list.len() - 1],
+                output_layer,
+                0.1,
+            );
+            flexible_net.set_input_layer(input_layer);
+            flexible_net.set_output_layer(output_layer);
 
-        //
+            let mut output_function: FunctionSegment = FunctionSegment::new();
+            output_function.set_function(FunctionSegmentFunctionEnum::SoftMax);
 
-        // let mut flexible_net = FlexibleNetwork::new();
-        // let input_layer: usize = flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
-        // let hidden_layer_list: Vec<usize> = vec![false; 2]
-        //     .iter()
-        //     .map(|n| flexible_net.new_layer(2, 0.0, ActivationFunctionEnum::DoNothing))
-        //     .collect::<Vec<usize>>();
-        // let output_layer: usize = flexible_net.new_layer(5, 0.0, ActivationFunctionEnum::DoNothing);
-        // flexible_net.connect_layer(input_layer, hidden_layer_list[0], 0.1);
-        // for i in 0..hidden_layer_list.len() - 1 {
-        //     flexible_net.connect_layer(hidden_layer_list[i], hidden_layer_list[i + 1], 0.1);
-        // }
-        // flexible_net.connect_layer(
-        //     hidden_layer_list[hidden_layer_list.len() - 1],
-        //     output_layer,
-        //     0.1,
-        // );
-        // flexible_net.set_input_layer(input_layer);
-        // flexible_net.set_output_layer(output_layer);
+            flexible_net_id = multi_seg.push_seg(flexible_net);
+            multi_seg.push_seg(output_function);
+        }
 
-        // let mut output_function: FunctionSegment = FunctionSegment::new();
-        // output_function.set_function(FunctionSegmentFunctionEnum::SoftMax);
-
-        // let mut multi_seg: MultiSegNetwork = MultiSegNetwork::new();
-        // let flexible_net_id = multi_seg.push_seg(flexible_net);
-        // multi_seg.push_seg(output_function);
-
-        //
-
-        let rate: f64 = 0.00062;
-        for _ in 0..10000 {
+        // let rate: f64 = 0.00062;
+        let rate: f64 = 0.00001;
+        for _ in 0..1000 {
             let mut data_pair_list: Vec<[Vec<f64>; 2]> = Vec::new();
 
             let mut game: Game = Game::new();
@@ -262,9 +266,9 @@ fn main() {
                 if game.get_step_count() > 10 {
                     break;
                 }
-                let screen_string: String = game.get_screen_string();
-                println!("");
-                println!("{}", screen_string);
+                // let screen_string: String = game.get_screen_string();
+                // println!("");
+                // println!("{}", screen_string);
                 let screen: Vec<Vec<ScreenElement>> = game.get_screen();
                 let input_data = screen
                     .iter()
